@@ -9,9 +9,6 @@
 //Esto nos da acceso a las estructuras y prototipos declarados en poker.h
 #include "poker.h"
 
-//Incluimos unicamente el archivo cabecera de nuestro modulo tragamonedas
-//Esto nos da acceso a las estructuras y prototipos declarados en TRAGAMONEDAS.h
-#include "TRAGAMONEDAS.h"
 
 //=========================================================================
 // CONSTANTES MACRO (#define)
@@ -25,7 +22,6 @@
 
 //Topes de saldo minimo exigidos para ingresar a cada juego
 #define MAX_SALDO_POKER 50000.0f    //Se usa 'f' para forzar tipo float (32 bits) no double (64bits)
-#define MAX_SALDO_TRAGAMONEDAS 500.0f
 #define MAX_SALDO_RULETA 500.0f
 #define MAX_SALDO_BLACKJACK 50000.0f
 
@@ -46,7 +42,6 @@ typedef enum{
 
 typedef enum{
     OPC_RULETA = 1,
-    OPC_TRAGAMONEDAS,
     OPC_POKER,
     OPC_BLACKJACK,
     OPC_CARGAR_SALDO,
@@ -57,9 +52,9 @@ typedef enum{
 typedef enum{
     OPC_SUMAR_SALDO = 1,
     OPC_RESTAR_SALDO,
-    OPC_FIJAR_SALDO,
     OPC_SALIR_MENU_AJUSTE,
 }OpcionesAjusteAdmin;
+
 
 //===============================================================================
 // PROTOTIPOS DE FUNCIONES DEL SISTEMA PRINCIPAL
@@ -94,16 +89,25 @@ int main(void){
     //Precarga del usuario 2 (Jugador de prueba)
     strcpy(listaUsuarios[1].usuario, "jugador1");
     strcpy(listaUsuarios[1].clave, "0000");
-     listaUsuarios[1].saldo = 1000.0f;
+    listaUsuarios[1].saldo = 1000.0f;
     listaUsuarios[1].edad = 27;
     listaUsuarios[1].activo = true;
+    listaUsuarios[1].gananciaAdmin = 0.0f;
 
-     //Precarga del usuario 3 (Vacia)
-    strcpy(listaUsuarios[2].usuario, "");
-    strcpy(listaUsuarios[2].clave, "");
-     listaUsuarios[2].saldo = 0.0f;
-    listaUsuarios[2].edad = 0;
-    listaUsuarios[2].activo = false;
+    //Descontamos su saldo inicial de la caja central para mantener la contabilidad exacta
+    ActualizarCajaCasino(&cajaCasino, listaUsuarios[1].saldo, 1);
+
+    
+    //Precarga de usuarios vacios
+    for(int i=2; i<MAX_USUARIOS;i++){
+        strcpy(listaUsuarios[i].usuario, "");
+        strcpy(listaUsuarios[i].clave, "");
+        listaUsuarios[i].saldo = 0.0f;
+        listaUsuarios[i].edad = 0;
+        listaUsuarios[i].activo = false;
+        listaUsuarios[i].gananciaAdmin = 0.0f;
+    }
+    
 
     //Palabras prohibidas para evitar registros con nombres de administrador
     const char palabrasAdmin[NO_ADMIN][50] = {"admin", "administrador"};
@@ -116,7 +120,7 @@ int main(void){
     do{
         system("clear || cls");
         printf("\n==========================================\n");
-        printf("          BIENVENIDO AL CasiNOgano          \n");
+        printf("          BIENVENIDO AL CASINO - GANO       \n");
         printf("\n==========================================\n");
         printf("%d. Iniciar Sesion.\n", OPC_INICIAR_SESION);
         printf("%d. Registrarse.\n", OPC_REGISTRARSE);
@@ -144,7 +148,7 @@ int main(void){
                 RegistrarUsuario(listaUsuarios, MAX_USUARIOS, palabrasAdmin, NO_ADMIN, EDAD_MIN, EDAD_MAX);
                 break;
             case OPC_SALIR_CASINO:
-                printf("\nGracias por visitar el casino.Hasta luego!\n");
+                printf("\nGracias por visitar el casino. Hasta luego!\n");
                 break;
             default:
                 printf("[X] Error: Ingrese un numero valido.\n");
@@ -165,7 +169,7 @@ void ConvertirAMinusculas(char *cadena){
 }
 
 //============================================================================
-//AUTENTICACI�N Y REGISTRO DE USUARIOS
+//AUTENTICACION Y REGISTRO DE USUARIOS
 //============================================================================
 
 //Busca coincidencia de credenciales entre las cuentas activas
@@ -202,7 +206,7 @@ void RegistrarUsuario(Usuario listaUsuarios[], int max, const char palabrasAdmin
     int posLibre = -1;
 
     for(int i = 0; i < max; i++){
-        if(!listaUsuarios[i].activo){
+        if(!listaUsuarios[i].activo){ 
             posLibre = i;
             break;
         }
@@ -210,7 +214,7 @@ void RegistrarUsuario(Usuario listaUsuarios[], int max, const char palabrasAdmin
 
     if (posLibre == -1){
         printf("\nLo sentimos, el casino no acepta mas usuarios (Cupos Llenos).\n");
-        printf("Presione <<ENTER>> �para continuar...");
+        printf("Presione <<ENTER>> para continuar...");
         getchar();
         return;
     }
@@ -223,7 +227,7 @@ void RegistrarUsuario(Usuario listaUsuarios[], int max, const char palabrasAdmin
 
     //Validacion de Edad utilizando directamente la funcion del modulo de poker
     do{
-        printf("Ingrese su edad (permitido %d a %d a�os): ", edadMin, edadMax);
+        printf("Ingrese su edad (permitido %d a %d aNos): ", edadMin, edadMax);
 
         if(!LeerEnteroValido(&nuevaEdad)){
             nuevaEdad = -1; //Fuerza un valor invalido si ingresan letras
@@ -302,7 +306,7 @@ void RegistrarUsuario(Usuario listaUsuarios[], int max, const char palabrasAdmin
             printf("[X] Error: Ese nombre de usuario ya esta en uso. Intente con otro.\n\n");
             nombreCorrecto = false;
         } else {
-            nombreCorrecto = true; // �Todo OK! Rompe el do-while
+            nombreCorrecto = true; 
         }
 
     } while(!nombreCorrecto);
@@ -319,8 +323,13 @@ void RegistrarUsuario(Usuario listaUsuarios[], int max, const char palabrasAdmin
     float saldito = 1000.0f;
     listaUsuarios[posLibre].saldo = saldito;
     listaUsuarios[posLibre].edad = nuevaEdad;
+    listaUsuarios[posLibre].gananciaAdmin = 0.0f; // Inicializamos la ganancia del admin en cero
 
-    printf("\n�Usuario registrado con exito! Saldo inicial de obsequio: $%.2f\n",saldito);
+
+    //El bono de bienvenida se descuenta como perdida inicial de la casa, para reflejarlo en el balance de caja del casino
+    ActualizarCajaCasino(&cajaCasino, saldito, 1); // 1 indica que la casa paga/resta
+
+    printf("\n¡Usuario registrado con exito! Saldo inicial de obsequio: $%.2f\n",saldito);
     printf("Presione <<ENTER>> para continuar...");
     getchar();
 }
@@ -348,26 +357,34 @@ void MenuAdmin(Usuario listaUsuarios[], int max){
         switch(opcionAdmin){
             case OPC_LISTAR_USUARIOS:
                 system("clear || cls");
-                printf("=== REPORTES DEL SISTEMA ===\n");
-                printf("POS | USUARIO         | EDAD    | SALDO\n");
-                printf("------------------------------------------\n");
-                // Recorre todo el arreglo de usuarios buscando los activos
-                for(int i = 0; i < max; i++){
+                printf("=== LIBRO DE AUDITORIA HISTORICA DEL CASINO ===\n");
+                printf(" FONDOS DISPONIBLES EN CAPITAL: $%.2f\n", cajaCasino);
+                printf("---------------------------------------------------\n");
+                
+                //Empezamos desde i = 1 para omitir al administrador en la lista
+                for(int i = 1; i< max; i++){
+                    //Verificamos que la casilla este activa antes de mostrar los datos
                     if(listaUsuarios[i].activo){
-                        // Imprime los datos formateados. %-15s alinea el texto a la izquierda
-                        printf("[%d]  %-15s | %d anos | $%.2f\n", i, listaUsuarios[i].usuario, listaUsuarios[i].edad, listaUsuarios[i].saldo);
-                    }else{
-                        // Si la casilla está libre, le avisa al administrador
-                        printf("[%d]  (Espacio Libre)\n", i);
+                        printf("[ID: %d] Usuario: %s\n",i, listaUsuarios[i].usuario);
+                        printf(" -> Edad: %d aNos\n",listaUsuarios[i].edad);
+                        printf(" -> Saldo del cliente: $%.2f\n", listaUsuarios[i].saldo);
+        
+
+                        //Si es positivo, el casino gano dinero con este usuario
+                        //Si es negativo, el usuario le saco ganancias a la casa
+                        if(listaUsuarios[i].gananciaAdmin >= 0){
+                            printf(" -> Rendimiento comercial: El casino le gano $%.2f\n", listaUsuarios[i].gananciaAdmin);
+                        }else{
+                            //Multiplicamos por -1.0f para mostrar el valor positivo de forma legible
+                            printf(" -> Rendimiento comercial: El usuario le va ganando $%.2f al Casino.\n", (listaUsuarios[i].gananciaAdmin * (-1.0f)));
+                        }
+                        printf("-------------------------------------------------------\n");    
                     }
                 }
-
-                printf("---------------------------------------------\n");
-                printf("Presione <<ENTER>> para continuar...");
-                getchar();
+                getchar(); //Esperar Tecla
                 break;
 
-            case OPC_MODIFICAR_SALDO:{
+            case OPC_MODIFICAR_SALDO:
                 // CASO 2: MODIFICAR SALDO DE UN USUARIO ESPECIFICO
                 system("clear || cls");
                 printf("=== MODIFICAR SALDO DE USUARIO ===\n");
@@ -394,10 +411,9 @@ void MenuAdmin(Usuario listaUsuarios[], int max){
                         printf("\nUsuario seleccionado: %s\n", listaUsuarios[usuarioModificar].usuario);
                         printf("Saldo actual: $%.2f\n", listaUsuarios[usuarioModificar].saldo);
                         printf("----------------------------------------------\n");
-                        printf("1. Sumar saldo\n");
-                        printf("2. Restar saldo\n");
-                        printf("3. Fijar saldo (sobreescribir)\n");
-                        printf("4. Salir\n");
+                        printf("%d. Sumar saldo\n", OPC_SUMAR_SALDO);
+                        printf("%d. Restar saldo\n", OPC_RESTAR_SALDO);
+                        printf("%d. Salir\n", OPC_SALIR_MENU_AJUSTE);
                         printf("Seleccione la operacion: ");
 
                         if(!LeerEnteroValido(&opcionAjuste)){
@@ -405,7 +421,7 @@ void MenuAdmin(Usuario listaUsuarios[], int max){
                         }
 
                         float montoAjuste = 0.0f;
-                        if((opcionAjuste >= 1) && (opcionAjuste <= 3)){
+                        if((opcionAjuste >= OPC_SUMAR_SALDO) && (opcionAjuste <= OPC_RESTAR_SALDO)){
                             printf("Ingrese el monto: $");
                             // Lee el monto de manera segura validando que sean numeros flotantes
                             if(!LeerFloatValido(&montoAjuste)){
@@ -418,28 +434,38 @@ void MenuAdmin(Usuario listaUsuarios[], int max){
                         switch(opcionAjuste){
                             case OPC_SUMAR_SALDO:
                                 if(montoAjuste > 0){
-                                    listaUsuarios[usuarioModificar].saldo += montoAjuste;
-                                    printf("¡Monto acreditado! Nuevo Saldo: $%.2f\n", listaUsuarios[usuarioModificar].saldo);
+                                    //Validamos que el casino tenga fondos suficientes en la caja central
+                                    if(montoAjuste <= cajaCasino){
+                                        listaUsuarios[usuarioModificar].saldo += montoAjuste;
+
+                                        //La caja central paga el bono/regalo (resta de la caja )
+                                        ActualizarCajaCasino(&cajaCasino, montoAjuste, 1);
+
+                                        //EL casino pierde plata frente a este usuario (resta en la auditoria)
+                                        listaUsuarios[usuarioModificar].gananciaAdmin -= montoAjuste;
+
+                                        printf("¡Monto acreditado! Nuevo Saldo: $%.2f\n", listaUsuarios[usuarioModificar].saldo);
+                                    }else{
+                                        printf("[X] Error: La banca central o posee fondos suficientes.\n");
+                                    }
                                 }else{
-                                    printf("[X]Error: Monto invalido.\n");
+                                    printf("[X] Error: Monto invalido.\n");
                                 }
                                 break;
 
                             case OPC_RESTAR_SALDO:
                                 if((montoAjuste > 0) && (listaUsuarios[usuarioModificar].saldo >= montoAjuste)){
                                     listaUsuarios[usuarioModificar].saldo -= montoAjuste;
-                                    printf("¡Monto debitado! Nuevo saldo: $%.2f\n", listaUsuarios[usuarioModificar].saldo);
-                                }else{
-                                    printf("[X]Error: Monto invalido o saldo insuficiente.\n");
-                                }
-                                break;
 
-                            case OPC_FIJAR_SALDO:
-                                if(montoAjuste >= 0){
-                                    listaUsuarios[usuarioModificar].saldo = montoAjuste;
-                                    printf("¡Saldo fijado correctamente! Nuevo saldo: $%.2f\n", listaUsuarios[usuarioModificar].saldo);
+                                    //El dinero quitado ingresa a la caja central (suma a la caja)
+                                    ActualizarCajaCasino(&cajaCasino, montoAjuste, -1);
+
+                                    //El casino gana la plata frente a este usaurio (suma en la auditoria)
+                                    listaUsuarios[usuarioModificar].gananciaAdmin += montoAjuste;        
+                                    
+                                    printf("¡Monto debitado! Nuevo Saldo: $%.2f\n", listaUsuarios[usuarioModificar].saldo);
                                 }else{
-                                    printf("[X]Error: Monto invalido.\n");
+                                    printf("[X] Error: Monto invalido o saldo insuficiente en el usuario.\n");
                                 }
                                 break;
 
@@ -473,7 +499,7 @@ void MenuAdmin(Usuario listaUsuarios[], int max){
                     getchar();
                 }
                 break;
-            }
+            
 
             case OPC_ELIMINAR_USUARIO:
                 // BANEAR / ELIMINAR USUARIO
@@ -482,7 +508,7 @@ void MenuAdmin(Usuario listaUsuarios[], int max){
                 printf("Ingrese el NOMBRE del usuario a banear: ");
                 scanf("%49s", usuarioBuscar);
                 while(getchar() != '\n');
-
+                
                 int posBan = -1;
                 for (int i = 0; i < max; i++){
                     if((listaUsuarios[i].activo) && (strcmp(listaUsuarios[i].usuario, usuarioBuscar) == 0) && (strcmp(usuarioBuscar, "admin") != 0)){
@@ -509,6 +535,7 @@ void MenuAdmin(Usuario listaUsuarios[], int max){
                 printf("Presione <<ENTER>> para continuar...");
                 getchar();
                 break;
+            
 
             case OPC_SALIR_MENU_ADMIN:
                 printf("Cerrando panel de administracion...\n");
@@ -520,6 +547,7 @@ void MenuAdmin(Usuario listaUsuarios[], int max){
                 getchar();
                 break;
         }
+        
     }while(opcionAdmin != OPC_SALIR_MENU_ADMIN);
 }
 
@@ -539,7 +567,7 @@ void CargarSaldo(float *saldoUsuario){
     //Si el monto ingresado es mayor a 0, se le suma a la cuenta
     if(monto > 0){
         *saldoUsuario += monto; //Modifica el valor original mediante el puntero
-        printf("�Carga exitosa! Nuevo saldo: $%.2f\n",*saldoUsuario);
+        printf("¡Carga exitosa! Nuevo saldo: $%.2f\n",*saldoUsuario);
     }else{
         printf("Monto invalido. La carga debe ser mayor a 0.\n");
     }
@@ -558,11 +586,10 @@ void MenuCasino(Usuario listaUsuarios[], int idSesion){
         printf("  USUARIO ACTIVO: %s\n", listaUsuarios[idSesion].usuario);
         printf("  SALDO DISPONIBLE: $%.2f\n", listaUsuarios[idSesion].saldo);
         printf("==================================================\n");
-        printf("%d. Jugar Ruleta\n", OPC_RULETA);
-        printf("%d. Jugar Tragamonedas (Slot)\n", OPC_TRAGAMONEDAS);
-        printf("%d. Jugar Poker\n", OPC_POKER);
-        printf("%d. Jugar BlackJack\n", OPC_BLACKJACK);
-        printf("%d. Cargar Saldo\n", OPC_CARGAR_SALDO);
+        printf("%d. Jugar Ruleta.\n", OPC_RULETA);
+        printf("%d. Jugar Poker.\n", OPC_POKER);
+        printf("%d. Jugar BlackJack.\n", OPC_BLACKJACK);
+        printf("%d. Cargar Saldo.\n", OPC_CARGAR_SALDO);
         printf("%d. Cerrar Sesion.\n", OPC_SALIR_MENU_CASINO);
         printf("==================================================\n");
         printf("Seleccione una opcion: ");
@@ -577,35 +604,19 @@ void MenuCasino(Usuario listaUsuarios[], int idSesion){
                 printf("Presione ENTER para continuar...");
                 getchar();
                 break;
-            case OPC_TRAGAMONEDAS:
-                //Validacion de saldo minimo requerido antes de permitir el ingreso al juego
-                if(listaUsuarios[idSesion].saldo >= MAX_SALDO_TRAGAMONEDAS){
-                    
-                    //Inicializamos la bandera en true para que el bucle del tragamonedas arranque 
-                    listaUsuarios[idSesion].continuar = true;
-
-                    //Pasamos la direccion de memoria de todoo el usuario (&)
-                    tragamonedas(&(listaUsuarios[idSesion]));
-                }else {
-                    printf("Error: Saldo insuficiente ($%.2f). Requiere al menos $%.2f\n", listaUsuarios[idSesion].saldo, MAX_SALDO_TRAGAMONEDAS);
-                    printf("Por favor cargue saldo (opcion 5)\n");
-                    printf("Presione ENTER para continuar...");
-                    getchar();
-                }
-                break;
             case OPC_POKER:
                 //Validacion de saldo minimo requerido antes de permitir el ingreso al juego
                 if(listaUsuarios[idSesion].saldo >= MAX_SALDO_POKER){
                      //Pasamos la direccion de memoria del saldo (&) para que las apuestas,
                     //ganancias o perdidas del poker impacten directamente en la cuenta del usuario
                     AnimacionBienvenida();
-                    MenuJuegoPoker(&(listaUsuarios[idSesion].saldo));
+                    MenuJuegoPoker(&(listaUsuarios[idSesion]));
                 }else {
                     printf("Error: Saldo insuficiente ($%.2f). Requiere al menos $%.2f\n", listaUsuarios[idSesion].saldo, MAX_SALDO_POKER);
                     printf("Por favor cargue saldo (opcion 5)\n");
                     printf("Presione ENTER para continuar...");
                     getchar();
-                }
+                } 
                 break;
             case OPC_BLACKJACK:
                 //BlackJack
@@ -628,5 +639,7 @@ void MenuCasino(Usuario listaUsuarios[], int idSesion){
         }
     }while(opcionJuego != OPC_SALIR_MENU_CASINO);
 }
+
+
 
 
