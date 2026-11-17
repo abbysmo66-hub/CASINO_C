@@ -61,3 +61,9 @@ casino.exe
 1. Crea o abre un proyecto en C que incluya `main.c`, `main.h`, `TRAGAMONEDAS.c` y `TRAGAMONEDAS.h`.
 2. Presiona **Compilar y Ejecutar** (`F9` o `F11`).
 3. *Recomendación:* Ejecútalo en la terminal moderna de Windows (*Windows Terminal*) para visualizar correctamente los emojis y bordes dobles.
+
+---
+
+## 👩‍💻 Autora
+
+* **Ingrid Oviedo** — Desarrollo completo del sistema y lógica de juego.
