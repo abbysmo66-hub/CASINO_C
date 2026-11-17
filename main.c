@@ -1,6 +1,4 @@
 
-//Incluimos unicamente el archivo cabecera de nuestro modulo poker
-//Esto nos da acceso a las estructuras y prototipos declarados en poker.h4
 #include "main.h"
 #include "TRAGAMONEDAS.h"
 
