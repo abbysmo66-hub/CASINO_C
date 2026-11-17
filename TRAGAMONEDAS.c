@@ -1,5 +1,4 @@
 //Librerias.
-//#include "../utiles.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -7,7 +6,10 @@
 #include <string.h>
 #include <locale.h>
 #include <ctype.h>
+
+
 #include "TRAGAMONEDAS.h"
+#include "main.h"
 
 /*Compatibilidad multiplataforma para pausar hilos (animación)*/
 #ifdef _WIN32
@@ -36,55 +38,25 @@ char *get_aux_buffer(double t) {
 /*La constante MAX_STRLEN define el tamaño maximo que se utiliza en este programa para
    cualquier cadena. */
 
-/*Declaraciones adelantadas de las funciones.*/
-void tragamonedas(struct Usuario *j);
-void cartel_tragamonedas();
-void apuesta_invalida();
-void slots_fortune();
-void palanca_01();
-void palanca_02();
-void girando();
-void iniciando(int rueda1, int rueda2, int rueda3);
-void jackpot();
-void sin_fichas();
-
-/*int main() {
-    srand((unsigned int)time(NULL));
-
-    // 1. Crear e inicializar la estructura Jugador
-    struct Jugador jugador1;
-    jugador1.saldo = 1000.0f;
-    jugador1.continuar = true;
-
-    // 2. Pasar la dirección de la estructura con el operador '&'
-    tragamonedas(&jugador1); 
-    
-    return 0;
-}*/
-
-/*La función ahora recibe un puntero apuntando a la estructura Jugador*/
-void tragamonedas(struct Usuario *j) {
-    int apuesta, apuestaMINIMA = 10;
+/*La función ahora recibe un puntero apuntando a la estructura Usuario_t, lo que permite modificar directamente el saldo del usuario en la memoria externa.*/
+void JugarTragamonedas(Usuario_t *j) {
+    int apuesta, apuestaMINIMA = 500; /*Apuesta minima para jugar. Se puede cambiar a cualquier valor entero positivo.*/
     int i, s, opcion;
     int rueda1, rueda2, rueda3;
     char textosimbolos[MAX_STRLEN];
     /* S para los ritmos. */
-
+    j->continuar = true; /*Inicializamos la bandera de control del bucle a true para que el juego comience.*/
     /*Accedemos a los campos del puntero usando el operador flecha '->'*/
-    while (j->saldo > 0 && j->continuar) {
+    while (j->continuar) {
         
-        #ifdef _WIN32
-            system("cls");
-        #else
-            system("clear");
-        #endif
+        LimpiarPantalla();
 
         cartel_tragamonedas();
         
-        printf("   ========================================================================\n");
-        printf("    SALDO ACTUAL: [$%.2f]\n", j->saldo);
-        printf("   ========================================================================\n");
-        printf("   Ingresa tu apuesta (Minimo $%d): ", apuestaMINIMA);
+        printf("   " T_AMARILLO "========================================================================\n" T_RESET);
+        printf("    " T_VERDE "SALDO ACTUAL: " T_AMARILLO "[$%.2f]\n" T_RESET, j->saldo);
+        printf("   " T_AMARILLO "========================================================================\n" T_RESET);
+        printf("   " T_BLANCO "Ingresa tu apuesta (Minimo $%d): " T_VERDE "$" T_RESET, apuestaMINIMA);
         
         if (scanf("%i", &apuesta) != 1) { /*El programa espera que el jugador escriba un número entero (%i) por su apuesta.*/
             while (getchar() != '\n'); /*Sigue agarrando y borrando caracteres hasta que pulsa la Enter.*/
@@ -99,16 +71,14 @@ void tragamonedas(struct Usuario *j) {
             apuesta_invalida();
             esperar(1800);
         } else {
-            // Modificamos el saldo directamente en la memoria externa usando el puntero
-            j->saldo = j->saldo - apuesta;
+            // 1. DESCUENTO AL JUGADOR Y ENTRADA A LA CAJA GLOBAL
+            j->saldo -= apuesta;
+            j->gananciaAdmin += apuesta;
+            ActualizarCajaCasino(&cajaCasino, (float)apuesta, -1); // -1 suma a la banca
             
             // Animación del giro de palanca y rodillos
             for (i = 1; i <= 5; ++i) {
-                #ifdef _WIN32
-                    system("cls");
-                #else
-                    system("clear");
-                #endif
+                LimpiarPantalla();
                 
                 cartel_tragamonedas();
                 slots_fortune();
@@ -132,11 +102,7 @@ void tragamonedas(struct Usuario *j) {
             rueda2 = (rand() % 4) + 1;
             rueda3 = (rand() % 4) + 1;
 
-            #ifdef _WIN32
-                system("cls");
-            #else
-                system("clear");
-            #endif
+            LimpiarPantalla();
             
             cartel_tragamonedas();
             slots_fortune();
@@ -177,42 +143,52 @@ void tragamonedas(struct Usuario *j) {
             /*Si fue larga, agregara pocos. No importa que simbolos salga, la frase siempre medirá exactamente 67 caracteres.*/
 
             /*Imprime la fila completamente alineada*/
-            printf("      |%s|\n", textosimbolos);
-            printf("      |___________________________________________________________________|\n\n");
+            printf("      " T_AMARILLO "|" T_CIAN "%s" T_AMARILLO "|\n" T_RESET, textosimbolos);
+            printf("      " T_AMARILLO "|___________________________________________________________________|\n\n" T_RESET);
+
 
             // ========================================================================
             /*LÓGICA DE PREMIOS Y RITMOS DE SONIDO (Se suma directo al saldo real del jugador)*/
+             float premio = 0.0f;
+
             if (rueda1 == rueda2 && rueda2 == rueda3) { /*Si las tres son iguales*/
                 if (rueda1 == 1) { /*Si sacó corona*/
                     jackpot();
-                    j->saldo = j->saldo + (apuesta * 15);
+                     premio = apuesta * 15.0f;
                     for (s = 1; s <= 12; ++s) { /*El bucle repite la instrucción dentro exactamente 12 veces .*/
                         esperar(80); /*Durante cada repetición, el programa se detiene completamente durante 80 segundos*/
                     }
                 } else {
-                    printf("¡Felicidades! Consiguiste 3 simbolos iguales. ¡Gran Premio! (+ x5)\n");
-                    j->saldo = j->saldo + (apuesta * 5);
+                    printf("  " T_VERDE "¡Felicidades! Consiguiste 3 simbolos iguales. ¡Gran Premio! (+ x5)\n" T_RESET);
+                    premio = apuesta * 5.0f;
                     for (s = 1; s <= 5; ++s) { /*Preincremento: Primero aumenta el valor y luego entrega el nuevo valor.*/	
                         /*Es ligeramente más rápido porque no necesitaba guardar una copia temporal del valor anterior antes de sumar 1*/
                         esperar(150);
                     }
                 }
             } else if (rueda1 == rueda2 || rueda2 == rueda3 || rueda1 == rueda3) {
-                printf("¡Bien! 2 simbolos iguales. Duplicas tu apuesta. (+ x2)\n");
-                j->saldo = j->saldo + (apuesta * 2);
+                printf("  " T_AMARILLO "¡Bien! 2 simbolos iguales. Duplicas tu apuesta. (+ x2)\n" T_RESET);
+                premio = apuesta * 2.0f;
                 esperar(300);
             } else {
-                printf("No tuviste suerte esta vez. Los rodillos no coinciden.\n");
+                printf("  " T_ROJO "No tuviste suerte esta vez. Los rodillos no coinciden.\n" T_RESET);
                 esperar(600);
             }
 
-            printf("\n==========================================================================\n");
-            printf("  NUEVO SALDO DISPONIBLE: $%.2f\n", j->saldo);
-            printf("==========================================================================\n");
+            // Si ganó algo, acreditamos al usuario y descontamos de la caja central
+            if (premio > 0.0f) {
+                j->saldo += premio;
+                j->gananciaAdmin -= premio;
+                ActualizarCajaCasino(&cajaCasino, premio, 1); // 1 resta de la banca
+            }
+
+            printf("\n" T_AMARILLO "==========================================================================\n" T_RESET);
+            printf("  " T_VERDE "NUEVO SALDO DISPONIBLE: " T_AMARILLO "$%.2f\n" T_RESET, j->saldo);
+            printf(T_AMARILLO "==========================================================================\n" T_RESET);
 
             if (j->saldo >= apuestaMINIMA) {
-                printf("  1. Seguir jugando.\n");
-                printf("  2. Volver al menu principal / Retirarse.\n");
+                printf("  " T_CIAN "1." T_BLANCO " Seguir jugando.\n");
+                printf("  " T_CIAN "2." T_ROJO " Volver al menu principal / Retirarse.\n" T_RESET);
                 printf("  Seleccione una opcion: ");
                 
                 if (scanf("%i", &opcion) != 1) {
@@ -226,17 +202,17 @@ void tragamonedas(struct Usuario *j) {
                         break;
                     case 2:
                         j->continuar = false;
-                        printf("\n ¡Gracias por jugar! Te retiras con un total de: $%.2f\n", j->saldo);
+                        printf("\n  " T_VERDE "¡Gracias por jugar! Te retiras con un total de: $%.2f\n" T_RESET, j->saldo);
                         while (getchar() != '\n'); 
                         getchar(); 
                         break;
                     default:
-                        printf(" Opcion invalida. Continuando juego por defecto...\n");
+                        printf("  " T_ROJO "Opcion invalida. Continuando juego por defecto...\n" T_RESET);
                         esperar(1000);
                 }
             } else {
                 sin_fichas();
-                printf("  Te has quedado sin saldo suficiente para la apuesta minima ($%d).\n", apuestaMINIMA);
+                printf("  " T_ROJO "Te has quedado sin saldo suficiente para la apuesta minima ($%d).\n" T_RESET, apuestaMINIMA);
                 printf("  Gracias por participar.\n");
                 j->continuar = false;
                 while (getchar() != '\n');
@@ -247,160 +223,80 @@ void tragamonedas(struct Usuario *j) {
 }
 
 /*--- IMPLEMENTACIÓN DE ARTE ASCII Y FUNCIONES DE TEXTO ---*/
-
 void cartel_tragamonedas() {
-    printf("  _______ _____           _____          __  __  ____  _   _ ______ _____           _____\n");
-    printf(" |__   __|  __ \\    /\\   / ____|   /\\   |  \\/  |/ __ \\| \\ | |  ____|  __ \\   /\\    / ____|\n");
-    printf("    | |  | |__) |  /  \\ | |  __   /  \\  | \\  / | |  | |  \\| | |__  | |  | | /  \\  | (___\n");
-    printf("    | |  |  _  /  / /\\ \\| | |_ | / /\\ \\ | |\\/| | |  | | . ` |  __| | |  | |/ /\\ \\  \\___ \\\n");
-    printf("    | |  | | \\ \\ / ____ \\ |__| |/ ____ \\| |  | | |__| | |\\  | |____| |__| / ____ \\ ____) |\n");
-    printf("    |_|  |_|  \\_/_/    \\_\\_____/_/    \\_\\_|  |_|\\____/|_| \\_|______|_____/_/    \\_\\_____/\n");
-    printf("\n ==========================================================================================\n");
-	printf("     TABLA DE PAGOS:   [ Crown ] [ Crown ] [ Crown ] -> JACKPOT GIGANTE (x15)\n");
-	printf("                       3 Simbolos Iguales          -> Gran Premio (x5)\n");
-	printf("                       2 Simbolos Iguales          -> Recompensa (x2)\n");
-	printf(" ==========================================================================================\n");
+    printf("\n" T_AMARILLO "      ╔═════════════════════════════════════════════════╗\n");
+    printf("      ║         " T_VERDE " 🪙  T R A G A M O N E D A S  🪙  " T_AMARILLO "        ║\n");
+    printf("      ╠═════════════════════════════════════════════════╣\n");
+    printf("      ║ " T_CIAN "TABLA DE PAGOS:" T_BLANCO "                                 " T_AMARILLO "║\n");
+    printf("      ║  • 👑 👑 👑  -> JACKPOT GIGANTE (x15)          " T_AMARILLO" ║\n");
+    printf("      ║  • 3 Iguales -> Gran Premio (x5)                " T_AMARILLO "║\n");
+    printf("      ║  • 2 Iguales -> Recompensa (x2)                 " T_AMARILLO "║\n");
+    printf("      ╚═════════════════════════════════════════════════╝\n" T_RESET);
 }
 
+
 void apuesta_invalida() {
-    printf(" .-------------------------------------------------------.\n");
-	printf(" |¡Apuesta invalida! ¡Presiona <<Enter>> para reintentar!|\n");
-	printf(" .-------------------------------------------------------.\n");
+    printf(" " T_ROJO ".-------------------------------------------------------.\n");
+	printf(" | ¡Apuesta inválida! ¡Presiona <<Enter>> para reintentar! |\n");
+	printf(" .-------------------------------------------------------." T_RESET "\n");
 }
 
 void slots_fortune() {
-    printf("      .___________________________________________________________________.\n");
-	printf("      |                    ===  SLOTS FORTUNE  ===                        |\n");
-	printf("      |___________________________________________________________________|\n");
-	printf("      |                 |                 |                 |             |\n");
+    printf("\n" T_AMARILLO "      ┌─────────────────────────────────────────────────┐\n");
+    printf("      │              " T_CIAN "=== SLOTS FORTUNE ===" T_AMARILLO "              │\n");
+    printf("      ├─────────────────────────────────────────────────┤\n");
 }
 
 void palanca_01() {
-    // Cuadro 1 de animación: Corona, Moneda y Espada / Palanca arriba (==O)
-    // Cada rodillo tiene exactamente 9 caracteres impresos en pantalla
-    printf("      |    "   "   _/\\_   "   "   |    "   "  / \\_/ \\ "   "   |    "   "   _/\\_   "   "   |     ==O     |\n");
-    printf("      |    "   "  >    <  "   "   |    "   " |       |"   "   |    "   "  >    <  "   "   |       |     |\n");
-    printf("      |    "   "    \\/    "   "   |    "   "  \\     / "   "   |    "   "    \\/    "   "   |    ___|     |\n");
-    printf("      |    "   "          "   "   |    "   "    \\_/   "   "   |    "   "          "   "   |   /         |\n");
+    printf("      │           " T_VERDE "🎰 [   GIRANDO...   ] 🎰           " T_AMARILLO "   │\n");
 }
 
 void palanca_02() {
-    // Cuadro 2 de animación: Símbolos invertidos / Palanca abajo (O)
-    printf("      |    "   "   / \\    "   "   |    "   "   _/\\_   "   "   |    "   "  / \\_/ \\ "   "   |             |\n");
-    printf("      |    "   "  /   \\   "   "   |    "   "  >    <  "   "   |    "   " |       |"   "   |       |     |\n");
-    printf("      |    "   "  \\___/   "   "   |    "   "    \\/    "   "   |    "   "  \\     / "   "   |    ___|     |\n");
-    printf("      |    "   "          "   "   |    "   "          "   "   |    "   "    \\_/   "   "   |   /   O     |\n");
+    printf("      │           " T_VERDE "🎰 [  * GIRANDO *   ] 🎰           " T_AMARILLO "   │\n");
 }
 
 void girando() {
-    printf("      |_________________|_________________|_________________|             |\n");
-	printf("      |                    [   G I R A N D O   ]            |             |\n");
-	printf("      |_____________________________________________________|_____________|\n");
+    printf("      └─────────────────────────────────────────────────┘\n" T_RESET);
 }
 
 void iniciando(int rueda1, int rueda2, int rueda3) {
-    const char *f1;
-    const char *f2;
-    const char *f3;
-    
-    printf("      |                 |                 |                 |             |\n");
-    
-    // ==================== FILA 1 DE LOS RODILLOS ====================
+    const char *s1, *s2, *s3;
+
     switch (rueda1) {
-        case 1:  f1 = ("   _/\\_   "); break;
-        case 2:  f1 = ("   / \\    "); break;
-        case 3:  f1 = ("  / \\_/ \\ "); break;
-        default: f1 = ("   / \\    "); break;
+        case SIMBOLO_CROWN:    s1 = " 👑 "; break;
+        case SIMBOLO_DIAMANTE: s1 = " 💎 "; break;
+        case SIMBOLO_MONEDA:   s1 = " 🪙 "; break;
+        default:               s1 = " ⚔️ "; break;
     }
     switch (rueda2) {
-        case 1:  f2 = ("   _/\\_   "); break;
-        case 2:  f2 = ("   / \\    "); break;
-        case 3:  f2 = ("  / \\_/ \\ "); break;
-        default: f2 = ("   / \\    "); break;
+        case SIMBOLO_CROWN:    s2 = " 👑 "; break;
+        case SIMBOLO_DIAMANTE: s2 = " 💎 "; break;
+        case SIMBOLO_MONEDA:   s2 = " 🪙 "; break;
+        default:               s2 = " ⚔️ "; break;
     }
     switch (rueda3) {
-        case 1:  f3 = ("   _/\\_   "); break;
-        case 2:  f3 = ("   / \\    "); break;
-        case 3:  f3 = ("  / \\_/ \\ "); break;
-        default: f3 = ("   / \\    "); break;
+        case SIMBOLO_CROWN:    s3 = " 👑 "; break;
+        case SIMBOLO_DIAMANTE: s3 = " 💎 "; break;
+        case SIMBOLO_MONEDA:   s3 = " 🪙 "; break;
+        default:               s3 = " ⚔️ "; break;
     }
-    printf("      |    %s   |    %s   |    %s   |      O      |\n", f1, f2, f3);
-    
-    // ==================== FILA 2 DE LOS RODILLOS ====================
-    switch (rueda1) {
-        case 1:  f1 = ("  >    <  "); break;
-        case 2:  f1 = ("  /   \\   "); break;
-        case 3:  f1 = (" |       |"); break;
-        default: f1 = ("  /   \\   "); break;
-    }
-    switch (rueda2) {
-        case 1:  f2 = ("  >    <  "); break;
-        case 2:  f2 = ("  /   \\   "); break;
-        case 3:  f2 = (" |       |"); break;
-        default: f2 = ("  /   \\   "); break;
-    }
-    switch (rueda3) {
-        case 1:  f3 = ("  >    <  "); break;
-        case 2:  f3 = ("  /   \\   "); break;
-        case 3:  f3 = (" |       |"); break;
-        default: f3 = ("  /   \\   "); break;
-    }
-    printf("      |    %s   |    %s   |    %s   |     /       |\n", f1, f2, f3);
-    
-    // ==================== FILA 3 DE LOS RODILLOS ====================
-    switch (rueda1) {
-        case 1:  f1 = ("    \\/    "); break;
-        case 2:  f1 = ("  \\   /   "); break;
-        case 3:  f1 = ("  \\     / "); break;
-        default: f1 = ("  \\___/   "); break;
-    }
-    switch (rueda2) {
-        case 1:  f2 = ("    \\/    "); break;
-        case 2:  f2 = ("  \\   /   "); break;
-        case 3:  f2 = ("  \\     / "); break;
-        default: f2 = ("  \\___/   "); break;
-    }
-    switch (rueda3) {
-        case 1:  f3 = ("    \\/    "); break;
-        case 2:  f3 = ("  \\   /   "); break;
-        case 3:  f3 = ("  \\     / "); break;
-        default: f3 = ("  \\___/   "); break;
-    }
-    printf("      |    %s   |    %s   |    %s   |    ||       |\n", f1, f2, f3);
-    
-    // ==================== FILA 4 DE LOS RODILLOS ====================
-    switch (rueda1) {
-        case 1:  f1 = ("          "); break;
-        case 2:  f1 = ("   \\ /    "); break;
-        case 3:  f1 = ("    \\_/   "); break;
-        default: f1 = ("          "); break;
-    }
-    switch (rueda2) {
-        case 1:  f2 = ("          "); break;
-        case 2:  f2 = ("   \\ /    "); break;
-        case 3:  f2 = ("    \\_/   "); break;
-        default: f2 = ("          "); break;
-    }
-    switch (rueda3) {
-        case 1:  f3 = ("          "); break;
-        case 2:  f3 = ("   \\ /    "); break;
-        case 3:  f3 = ("    \\_/   "); break;
-        default: f3 = ("          "); break;
-    }
-    printf("      |    %s   |    %s   |    %s   |    ||       |\n", f1, f2, f3);
-    
-    printf("      |_________________|_________________|_________________|             |\n");
+
+    printf("\n" T_AMARILLO "      ┌──────────────────┬──────────────────┬──────────────────┐\n");
+    printf("      │" T_CIAN "    RODILLO 1     " T_AMARILLO "│" T_CIAN "    RODILLO 2     " T_AMARILLO "│" T_CIAN "    RODILLO 3     " T_AMARILLO "│\n");
+    printf("      ├──────────────────┼──────────────────┼──────────────────┤\n");
+    printf("      │" T_BLANCO "  %-18s" T_AMARILLO "│" T_BLANCO "     %-18s" T_AMARILLO "│" T_BLANCO "   %-18s" T_AMARILLO "│\n", s1, s2, s3);
+    printf("      └──────────────────┴──────────────────┴──────────────────┘\n" T_RESET);
 }
 
 void jackpot() {
-    printf("  ***********************************************************\n");
-	printf("  ¡¡¡ JACKPOT GIGANTE !!! ¡REVENTASTE LA BANCA CON 3 CORONAS!\n");
-	printf("  ***********************************************************\n");
+    printf("  " T_AMARILLO "***********************************************************\n");
+	printf("  " T_VERDE "¡¡¡ JACKPOT GIGANTE !!! ¡REVENTASTE LA BANCA CON 3 CORONAS!\n");
+	printf("  " T_AMARILLO "***********************************************************" T_RESET "\n");
 }
 
 void sin_fichas() {
-    printf("  ___________________________________________________________\n");
+    printf("  " T_ROJO "___________________________________________________________\n");
 	printf(" |                                                           |\n");
-	printf(" |   Te has quedado sin fichas. ¡Mejor suerte la proxima!    |\n");
-	printf(" |___________________________________________________________|\n");
+	printf(" |   Te has quedado sin fichas. ¡Mejor suerte la próxima!    |\n");
+	printf(" |___________________________________________________________|" T_RESET "\n");
 }
